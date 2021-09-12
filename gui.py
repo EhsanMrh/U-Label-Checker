@@ -3,7 +3,6 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5 import QtCore, QtWidgets
-import cv2
 import time
 from mediaPlayerWithPlaylist import VideoPlayer
 

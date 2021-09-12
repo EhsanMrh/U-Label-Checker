@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import csv
 
 import numpy as np
 import pandas as pd
@@ -11,7 +12,7 @@ from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer, QMediaPlaylist
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import *
 
-from directions import VIDEO_DIR
+from config import VIDEO_PATH, RESULT_PATH
 
 
 def createPersonalDir(path):
@@ -49,8 +50,8 @@ class VideoPlayer(QtWidgets.QWidget):
         self.playlist_media_count = 0
         self.current_index = 0
         self.result = {
-            'path': [],
-            'word': []
+            'path': '',
+            'word': ''
         }
 
         self.mediaPlayer = QMediaPlayer(None, QMediaPlayer.VideoSurface)
@@ -94,25 +95,46 @@ class VideoPlayer(QtWidgets.QWidget):
         input_word, done = QtWidgets.QInputDialog.getText(
             self, 'Input', 'Enter Correct Word:', text=self.selected_word)
         if input_word and done:
-            self.result['path'].append(self.relative_path)
-            self.result['word'].append(input_word)
+            self.result['path'] = (self.relative_path)
+            self.result['word'] = (input_word)
         else:
-            self.result['path'].append(self.relative_path)
-            self.result['word'].append('None')
+            self.result['path'] = (self.relative_path)
+            self.result['word'] = ('None')
             self.exit_app()
+
+    def handle_csv(self, path, word):
+        fieldnames = ['path', 'word']
+
+        if not os.path.isfile(f'{RESULT_PATH}/{self.name}.csv'):
+            processed_file = open(f'{RESULT_PATH}/{self.name}.csv', mode='a+')        
+            processed_file_writer = csv.DictWriter(processed_file, fieldnames=fieldnames)
+            processed_file_writer.writeheader()
+            processed_file.flush()
+
+        else:
+            processed_file = open(f'{RESULT_PATH}/{self.name}.csv', mode='a+')        
+            processed_file_writer = csv.DictWriter(processed_file, fieldnames=fieldnames)
+
+
+        processed_file_writer.writerow({'path': path, 
+                                        'word': word})
+        processed_file.flush()
+        processed_file.close()
+
 
     def endMedia(self, status):
         if status == QMediaPlayer.EndOfMedia:
             self.showInputBox()
+            # Check and create results file
+            if not os.path.exists(RESULT_PATH):
+                os.mkdir(RESULT_PATH)
+
+            # Write to csv file
+            self.handle_csv(self.result['path'],self.result['word'])
+                
+            print(f"+ Label: '{self.result['word']}'  for video: '{self.result['path']}'  saved! ")
+ 
             if self.current_index == self.playlist_media_count:
-                dataframe = pd.DataFrame(self.result)
-                if not os.path.exists('results'):
-                    os.mkdir('results')
-                des = createPersonalDir(self.name)
-
-                dataframe.to_csv(f'{des}/result.csv')
-                print("+ file saved")
-
                 self.enable_start()
                 self.close()
                 self.setVideoPlayerNone()
@@ -124,12 +146,12 @@ class VideoPlayer(QtWidgets.QWidget):
             self.relative_path = url.fileName()
 
     def importVideoPlaylist(self):
-        word_list = os.listdir(VIDEO_DIR)
+        word_list = os.listdir(VIDEO_PATH)
         self.selected_word = word_list[0]
         for word in word_list:
-            sample_list = os.listdir(f'{VIDEO_DIR}/{word}')
+            sample_list = os.listdir(f'{VIDEO_PATH}/{word}')
             for sample in sample_list:
-                video_abspath = os.path.abspath(f'{VIDEO_DIR}/{word}/{sample}')
+                video_abspath = os.path.abspath(f'{VIDEO_PATH}/{word}/{sample}')
                 self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(video_abspath)))
 
         self.playlist_media_count = self.playlist.mediaCount()

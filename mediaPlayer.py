@@ -10,7 +10,7 @@ from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import *
 
-from directions import VIDEO_DIR
+from config import VIDEO_PATH
 
 
 class VideoPlayer(QtWidgets.QWidget):
