@@ -1,6 +1,5 @@
 import os
-import re
-import time
+import shutil
 import csv
 
 import numpy as np
@@ -12,28 +11,7 @@ from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer, QMediaPlaylist
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import *
 
-from config import VIDEO_PATH, RESULT_PATH
-
-
-def createPersonalDir(path):
-    personal_directory = f'results/{path}'
-    if os.path.exists(personal_directory):
-        directories = os.listdir(personal_directory)
-        if directories:
-            indexes = [int(index.split(' ')[1]) for index in directories]
-
-            os.mkdir(f'{personal_directory}/session {max(indexes) + 1}')
-            destination = f'{personal_directory}/session {max(indexes) + 1}'
-        else:
-            os.mkdir(f'{personal_directory}/session 1')
-            destination = f'{personal_directory}/session 1'
-
-    else:
-        os.mkdir(personal_directory)
-        os.mkdir(f'{personal_directory}/session 1')
-        destination = f'{personal_directory}/session 1'
-
-    return destination
+from config import VIDEO_PATH, RESULT_PATH, NOISE_PATH
 
 
 class VideoPlayer(QtWidgets.QWidget):
@@ -92,6 +70,10 @@ class VideoPlayer(QtWidgets.QWidget):
         self.statusBar.showMessage("Ready")
 
     def showInputBox(self):
+        # Create noise directory
+        if not os.path.exists(NOISE_PATH):
+            os.mkdir(NOISE_PATH)
+
         input_word, done = QtWidgets.QInputDialog.getText(
             self, 'Input', 'Enter Correct Word:', text=self.selected_word)
         if input_word and done:
@@ -100,7 +82,16 @@ class VideoPlayer(QtWidgets.QWidget):
         else:
             self.result['path'] = (self.relative_path)
             self.result['word'] = ('None')
-            self.exit_app()
+            
+            if not os.path.exists(f"{NOISE_PATH}/{self.selected_word}"):
+                os.mkdir(f"{NOISE_PATH}/{self.selected_word}")
+            source = f"{VIDEO_PATH}/{self.selected_word}/{self.relative_path}"
+            print("Source: ", source)
+            destination = f"{NOISE_PATH}/{self.selected_word}/{self.relative_path}"
+            print("des: ", destination)
+            shutil.move(source, destination)
+
+            # self.exit_app()
 
     def handle_csv(self, path, word):
         fieldnames = ['path', 'word']
@@ -148,14 +139,28 @@ class VideoPlayer(QtWidgets.QWidget):
     def importVideoPlaylist(self):
         word_list = os.listdir(VIDEO_PATH)
         self.selected_word = word_list[0]
+        labeled_videos_path = f"{RESULT_PATH}/{self.name}.csv"
+        labeled_videos = ''
+        if os.path.isfile(labeled_videos_path):
+            labeled_videos = pd.read_csv(labeled_videos_path)
+
         for word in word_list:
             sample_list = os.listdir(f'{VIDEO_PATH}/{word}')
             for sample in sample_list:
-                video_abspath = os.path.abspath(f'{VIDEO_PATH}/{word}/{sample}')
-                self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(video_abspath)))
+                if len(labeled_videos):
+                    if (len(labeled_videos[labeled_videos['path'] == sample]) == 0):
+                        video_abspath = os.path.abspath(f'{VIDEO_PATH}/{word}/{sample}')
+                        self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(video_abspath)))
+                else: 
+                    video_abspath = os.path.abspath(f'{VIDEO_PATH}/{word}/{sample}')
+                    self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(video_abspath)))
 
-        self.playlist_media_count = self.playlist.mediaCount()
-        self.mediaPlayer.setPlaylist(self.playlist)
+        if not self.playlist.isEmpty():
+            self.playlist_media_count = self.playlist.mediaCount()
+            self.mediaPlayer.setPlaylist(self.playlist)
+        else:
+            print("All videos labeled")
+            self.exit_app()
 
     def playlistIndexChange(self, index):
         self.current_index = index + 1
