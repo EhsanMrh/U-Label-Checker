@@ -1,2 +1,2 @@
-RESULT_PATH = './results'
-VIDEO_PATH = './videos'
+RESULT_PATH = 'results'
+VIDEO_PATH = 'videos'
